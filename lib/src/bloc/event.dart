@@ -5,7 +5,8 @@ class PagedListEvent {
 }
 
 class _LoadEvent extends PagedListEvent {
-  const _LoadEvent();
+  const _LoadEvent(this.page);
+  final int page;
 }
 
 class _LoadMoreEvent extends PagedListEvent {

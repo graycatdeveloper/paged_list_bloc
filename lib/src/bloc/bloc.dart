@@ -1,28 +1,26 @@
 part of '../../paged_list_bloc.dart';
 
 abstract class PagedListBloc<STATE, ITEM>
-    extends Bloc<PagedListEvent, PagedListState<ITEM, STATE>> {
+    extends Bloc<PagedListEvent, PagedListState<STATE, ITEM>> {
 
   PagedListBloc(STATE initialState) :
-        super(PagedListState<ITEM, STATE>(state: initialState));
+        super(PagedListState<STATE, ITEM>(state: initialState));
 
-  int _page = 1;
+  //int _page = 1;
   bool _hasNextPageRequest = false;
   bool _isLastPage = false;
 
   @protected
   @nonVirtual
-  void onPagedList<RESPONSE>({
+  void onPaged<RESPONSE>({
     required int pageSize,
     required RequestBuilder<RESPONSE> requestBuilder,
     required ResponseMapper<RESPONSE, ITEM> responseMapper,
-    OnError<STATE>? onError,
-    int startPage = 1
+    OnError<STATE>? onError
   }) {
-    _page = startPage;
     Future<void> func(Emitter emit, int page) async {
-      _page = page;
-      await _load<RESPONSE>(
+      emit(state.copyWith(page: page));
+      await _request<RESPONSE>(
         requestBuilder: requestBuilder,
         responseMapper: responseMapper,
         page: page,
@@ -32,12 +30,15 @@ abstract class PagedListBloc<STATE, ITEM>
       );
       _hasNextPageRequest = false;
     }
-    on<_LoadEvent>((_, emit) => func(emit, 1), transformer: restartable());
-    on<_LoadMoreEvent>((_, emit) => func(emit, _page + 1), transformer: restartable());
-    on<_RetryEvent>((_, emit) => func(emit, _page), transformer: restartable());
+    on<_LoadEvent>((event, emit) => func(emit, event.page),
+        transformer: restartable());
+    on<_LoadMoreEvent>((_, emit) => func(emit, state.page + 1),
+        transformer: restartable());
+    on<_RetryEvent>((_, emit) => func(emit, state.page),
+        transformer: restartable());
   }
 
-  Future<void> _load<RESPONSE>({
+  Future<void> _request<RESPONSE>({
     required RequestBuilder<RESPONSE> requestBuilder,
     required ResponseMapper<RESPONSE, ITEM> responseMapper,
     required int page,
@@ -94,14 +95,10 @@ abstract class PagedListBloc<STATE, ITEM>
     );
   }
 
-  void load() => add(const _LoadEvent());
-  void loadMore() => add(const _LoadMoreEvent());
-  void retry() => add(const _RetryEvent());
+  void _onRefresh() => pagedLoad(page: 1);
+  void _loadMore() => add(const _LoadMoreEvent());
+  void _retry() => add(const _RetryEvent());
 
-  @override
-  Future<void> close() {
-    //_cancelToken.cancel('CANCEL REQUEST: ${_cancelToken.requestOptions?.uri}');
-    return super.close();
-  }
+  void pagedLoad({required int page}) => add(_LoadEvent(page));
 
 }

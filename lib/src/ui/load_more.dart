@@ -10,7 +10,7 @@ class _LoadMoreWidget<
   @override
   Widget build(BuildContext context) {
     final bloc = BlocProvider.of<BLOC>(context);
-    return BlocSelector<BLOC, PagedListState<ITEM, STATE>, PageStatus?>(
+    return BlocSelector<BLOC, PagedListState<STATE, ITEM>, PageStatus?>(
       selector: (state) => state.loadMoreStatus,
       builder: (_, status) {
         var color = Colors.transparent;
@@ -24,7 +24,7 @@ class _LoadMoreWidget<
           child = const Text('empty');
         } else if (status is ErrorPageStatus) {
           color = Colors.redAccent.withOpacity(.5);
-          onTap = bloc.retry;
+          onTap = bloc._retry;
           child = Text(
             'Error: ${status.error}',
             style: const TextStyle(

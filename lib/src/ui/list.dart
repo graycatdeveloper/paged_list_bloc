@@ -1,5 +1,14 @@
 part of '../../paged_list_bloc.dart';
 
+class PagedBlocSelector<
+  BLOC extends PagedListBloc<STATE, ITEM>, ITEM, STATE, T
+> extends BlocSelector {
+  const PagedBlocSelector({
+    required super.selector,
+    required super.builder
+  });
+}
+
 class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
     extends StatelessWidget {
 
@@ -8,19 +17,16 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
     final List<Widget>? beforeSlivers,
     final OnPageStatus? onFirstLoad,
     final OnPageStatus? onLoadMore,
-    //final OnPageError? onError,
     super.key
   }) : _itemBuilder = itemBuilder,
        _beforeSlivers = beforeSlivers,
        _onFirstLoad = onFirstLoad,
        _onLoadMore = onLoadMore;
-       //_onError = onError;
 
   final ItemWidgetBuilder<ITEM> _itemBuilder;
   final List<Widget>? _beforeSlivers;
   final OnPageStatus? _onFirstLoad;
   final OnPageStatus? _onLoadMore;
-  //final OnPageError? _onError;
 
   final _scrollController = ScrollController();
   final _toToButtonVisible = ValueNotifier(false);
@@ -32,7 +38,7 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
     final topMargin = statusBarHeight + kToolbarHeight;
     return MultiBlocListener(
       listeners: [
-        BlocListener<BLOC, PagedListState<ITEM, STATE>>(
+        BlocListener<BLOC, PagedListState<STATE, ITEM>>(
           listenWhen: (p, c) =>
             _onFirstLoad != null &&
             c.firstPageStatus != null && (
@@ -42,7 +48,7 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
             _onFirstLoad!(state.firstPageStatus!);
           },
         ),
-        BlocListener<BLOC, PagedListState<ITEM, STATE>>(
+        BlocListener<BLOC, PagedListState<STATE, ITEM>>(
           listenWhen: (p, c) =>
             _onLoadMore != null &&
             c.loadMoreStatus != null && (
@@ -51,13 +57,7 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
           listener: (context, state) {
             _onLoadMore!(state.loadMoreStatus!);
           },
-        ),
-        /*BlocListener<BLOC, PagedListState<ITEM, STATE>>(
-          listenWhen: (p, c) => _onError != null && p.error != c.error,
-          listener: (context, state) {
-            _onError!(state.error);
-          },
-        ),*/
+        )
       ],
       child: RefreshIndicator(
         edgeOffset: topMargin,
@@ -75,7 +75,7 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
           }
           return notification.depth == 0;
         },
-        onRefresh: () => Future.sync(bloc.load),
+        onRefresh: () => Future.sync(bloc._onRefresh),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -95,7 +95,7 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
                   slivers: [
                     ...?_beforeSlivers,
                     //SliverPersistentHeader(),
-                    BlocSelector<BLOC, PagedListState<ITEM, STATE>, PageStatus?>(
+                    _blocSelector<PageStatus?>(
                       selector: (state) => state.firstPageStatus,
                       builder: (_, status) {
                         Widget child;
@@ -160,7 +160,7 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
   );
 
   Widget _complete(BLOC bloc) =>
-    BlocSelector<BLOC, PagedListState<ITEM, STATE>, List<ITEM>>(
+    _blocSelector<List<ITEM>>(
       selector: (state) => state.items,
       builder: (_, items) => SliverList(
         delegate: SliverChildBuilderDelegate(
@@ -187,15 +187,14 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
       final trigger = items.isNotEmpty &&
           itemIndex == math.max(0, items.length - 1);
       if (!bloc._isLastPage && trigger) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => bloc.loadMore());
+        WidgetsBinding.instance.addPostFrameCallback((_) => bloc._loadMore());
         bloc._hasNextPageRequest = true;
       }
     }
   }
 
   Widget _item(int itemIndex) =>
-    BlocSelector<BLOC, PagedListState<ITEM, STATE>, ITEM?>(
-      key: UniqueKey(),
+    _blocSelector<ITEM?>(
       selector: (state) => state.items.elementAtOrNull(itemIndex),
       builder: (context, item) {
         if (item != null) {
@@ -211,6 +210,14 @@ class PagedList<BLOC extends PagedListBloc<STATE, ITEM>, STATE, ITEM>
     width: double.infinity,
     height: 1,
     color: Colors.black.withOpacity(.1)
+  );
+
+  Widget _blocSelector<T>({
+    required final BlocWidgetSelector<PagedListState<STATE, ITEM>, T> selector,
+    required final BlocWidgetBuilder<T> builder
+  }) => BlocSelector<BLOC, PagedListState<STATE, ITEM>, T>(
+    selector: selector,
+    builder: builder
   );
 
 }
